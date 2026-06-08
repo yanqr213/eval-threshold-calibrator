@@ -1,0 +1,26 @@
+{
+  "label_field": "label",
+  "result_field": "passed",
+  "id_field": "id",
+  "objective": "f1",
+  "stability_tolerance": 0.02,
+  "target_precision": 0.8,
+  "min_recall": 0.75,
+  "current_min_pass_rate": 0.66,
+  "fail_on_current": true,
+  "auxiliary_fields": ["latency_ms", "cost_usd", "tokens"],
+  "metrics": {
+    "faithfulness": {
+      "direction": "higher",
+      "min_value": 0,
+      "max_value": 1,
+      "required": true
+    },
+    "answer_relevance": {
+      "direction": "higher",
+      "min_value": 0,
+      "max_value": 1,
+      "required": true
+    }
+  }
+}

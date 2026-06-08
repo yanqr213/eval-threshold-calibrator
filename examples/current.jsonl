@@ -1,0 +1,3 @@
+{"id":"candidate-001","faithfulness":0.89,"answer_relevance":0.86,"latency_ms":805,"cost_usd":0.012,"tokens":1300}
+{"id":"candidate-002","faithfulness":0.77,"answer_relevance":0.79,"latency_ms":840,"cost_usd":0.013,"tokens":1360}
+{"id":"candidate-003","faithfulness":0.92,"answer_relevance":0.90,"latency_ms":870,"cost_usd":0.013,"tokens":1405}

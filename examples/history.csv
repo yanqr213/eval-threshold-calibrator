@@ -1,0 +1,9 @@
+id,label,passed,faithfulness,answer_relevance,latency_ms,cost_usd,tokens
+case-001,true,true,0.94,0.91,820,0.012,1350
+case-002,true,true,0.88,0.84,760,0.011,1280
+case-003,false,false,0.43,0.51,690,0.009,1100
+case-004,true,false,0.79,0.82,930,0.014,1510
+case-005,false,true,0.71,0.48,880,0.013,1420
+case-006,false,false,0.35,0.39,640,0.008,980
+case-007,true,true,0.86,0.87,790,0.011,1230
+case-008,false,false,0.58,0.55,705,0.010,1170

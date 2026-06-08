@@ -1,0 +1,12 @@
+{"id":"case-001","label":true,"passed":true,"faithfulness":0.94,"answer_relevance":0.91,"latency_ms":820,"cost_usd":0.012,"tokens":1350}
+{"id":"case-002","label":true,"passed":true,"faithfulness":0.88,"answer_relevance":0.84,"latency_ms":760,"cost_usd":0.011,"tokens":1280}
+{"id":"case-003","label":false,"passed":false,"faithfulness":0.43,"answer_relevance":0.51,"latency_ms":690,"cost_usd":0.009,"tokens":1100}
+{"id":"case-004","label":true,"passed":false,"faithfulness":0.79,"answer_relevance":0.82,"latency_ms":930,"cost_usd":0.014,"tokens":1510}
+{"id":"case-005","label":false,"passed":true,"faithfulness":0.71,"answer_relevance":0.48,"latency_ms":880,"cost_usd":0.013,"tokens":1420}
+{"id":"case-006","label":false,"passed":false,"faithfulness":0.35,"answer_relevance":0.39,"latency_ms":640,"cost_usd":0.008,"tokens":980}
+{"id":"case-007","label":true,"passed":true,"faithfulness":0.86,"answer_relevance":0.87,"latency_ms":790,"cost_usd":0.011,"tokens":1230}
+{"id":"case-008","label":false,"passed":false,"faithfulness":0.58,"answer_relevance":0.55,"latency_ms":705,"cost_usd":0.010,"tokens":1170}
+{"id":"case-009","label":true,"passed":true,"faithfulness":0.91,"answer_relevance":0.89,"latency_ms":845,"cost_usd":0.012,"tokens":1325}
+{"id":"case-010","label":false,"passed":false,"faithfulness":0.49,"answer_relevance":0.44,"latency_ms":670,"cost_usd":0.009,"tokens":1050}
+{"id":"case-011","label":true,"passed":true,"faithfulness":0.83,"answer_relevance":0.80,"latency_ms":810,"cost_usd":0.012,"tokens":1295}
+{"id":"case-012","label":false,"passed":false,"faithfulness":0.62,"answer_relevance":0.59,"latency_ms":735,"cost_usd":0.010,"tokens":1155}
