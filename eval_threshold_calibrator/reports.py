@@ -1,15 +1,67 @@
 from __future__ import annotations
 
 import html
+import json
+from datetime import datetime, timezone
 from typing import List
 
 from .models import CalibrationReport
+from .serialization import to_plain
 from .serialization import to_json
 from .utils import fmt_float
 
 
 def render_json(report: CalibrationReport) -> str:
     return to_json(report)
+
+
+def render_policy_json(report: CalibrationReport) -> str:
+    policy = {
+        "schema_version": "eval-threshold-policy.v1",
+        "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "objective": report.config.objective,
+        "label_field": report.config.label_field,
+        "id_field": report.config.id_field,
+        "current_min_pass_rate": report.config.current_min_pass_rate,
+        "history": {
+            "sample_count": report.history_count,
+            "positive_count": report.positive_count,
+            "negative_count": report.negative_count,
+        },
+        "metrics": {},
+        "warnings": list(report.warnings),
+    }
+    for metric in report.metrics.values():
+        policy["metrics"][metric.name] = {
+            "threshold": metric.threshold,
+            "normalized_threshold": metric.normalized_threshold,
+            "direction": metric.direction,
+            "required": metric.required,
+            "precision": metric.best.precision,
+            "recall": metric.best.recall,
+            "fpr": metric.best.fpr,
+            "fnr": metric.best.fnr,
+            "f1": metric.best.f1,
+            "accuracy": metric.best.accuracy,
+            "acceptance_rate": metric.best.acceptance_rate,
+            "stable_interval": {
+                "low": metric.stable_interval.raw_low,
+                "high": metric.stable_interval.raw_high,
+                "width": metric.stable_interval.width,
+                "candidate_count": metric.stable_interval.count,
+            },
+            "reason": metric.reason,
+            "warnings": list(metric.warnings),
+        }
+    if report.current:
+        policy["current_gate"] = {
+            "total": report.current.total,
+            "passed": report.current.passed,
+            "failed": report.current.failed,
+            "pass_rate": report.current.pass_rate,
+            "gate_passed": report.current.gate_passed,
+        }
+    return json.dumps(to_plain(policy), ensure_ascii=False, indent=2, sort_keys=True) + "\n"
 
 
 def render_markdown(report: CalibrationReport) -> str:

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "eval-threshold-calibrator"
-version = "0.1.0"
+version = "0.2.0"
 description = "Offline threshold calibration for LLM/RAG/agent eval CI gates."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -27,6 +27,12 @@ dependencies = []
 
 [project.scripts]
 eval-threshold-calibrator = "eval_threshold_calibrator.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/yanqr213/eval-threshold-calibrator"
+Repository = "https://github.com/yanqr213/eval-threshold-calibrator"
+Issues = "https://github.com/yanqr213/eval-threshold-calibrator/issues"
+Changelog = "https://github.com/yanqr213/eval-threshold-calibrator/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 include = ["eval_threshold_calibrator*"]

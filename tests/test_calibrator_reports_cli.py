@@ -8,10 +8,11 @@ from io import StringIO
 
 from eval_threshold_calibrator.calibrator import calibrate, evaluate_current
 from eval_threshold_calibrator.cli import main
-from eval_threshold_calibrator.errors import InputError
+from eval_threshold_calibrator.errors import ConfigError, InputError
 from eval_threshold_calibrator.io import config_from_dict
 from eval_threshold_calibrator.models import CalibrationConfig, MetricConfig
-from eval_threshold_calibrator.reports import render_junit, render_json, render_markdown
+from eval_threshold_calibrator.policy import evaluate_current_with_policy, validate_policy
+from eval_threshold_calibrator.reports import render_junit, render_json, render_markdown, render_policy_json
 
 
 class CalibratorReportCliTests(unittest.TestCase):
@@ -91,6 +92,33 @@ class CalibratorReportCliTests(unittest.TestCase):
         self.assertIn("metrics", data)
         self.assertIn("score", data["metrics"])
 
+    def test_render_policy_json_contains_gate_thresholds(self):
+        data = json.loads(render_policy_json(calibrate(self.history, self.cfg)))
+
+        self.assertEqual(data["schema_version"], "eval-threshold-policy.v1")
+        self.assertIn("score", data["metrics"])
+        self.assertIn("threshold", data["metrics"]["score"])
+        self.assertEqual(data["metrics"]["score"]["direction"], "higher")
+
+    def test_policy_evaluates_lower_direction(self):
+        cfg = config_from_dict({"metrics": {"latency": {"direction": "lower"}}})
+        report = calibrate(
+            [{"label": True, "latency": 10}, {"label": False, "latency": 90}],
+            cfg,
+        )
+        policy = json.loads(render_policy_json(report))
+        gate = evaluate_current_with_policy([{"id": "fast", "latency": 5}], policy)
+
+        self.assertTrue(gate.gate_passed)
+        self.assertTrue(gate.decisions[0].passed)
+
+    def test_policy_requires_boolean_required(self):
+        policy = json.loads(render_policy_json(calibrate(self.history, self.cfg)))
+        policy["metrics"]["score"]["required"] = 1
+
+        with self.assertRaises(ConfigError):
+            validate_policy(policy)
+
     def test_render_junit(self):
         xml = render_junit(calibrate(self.history, self.cfg, [{"id": "bad", "score": 0.1}]))
         root = ET.fromstring(xml)
@@ -126,12 +154,28 @@ class CalibratorReportCliTests(unittest.TestCase):
         md = self.temp_file(".md")
         js = self.temp_file(".json")
         junit = self.temp_file(".xml")
+        policy = self.temp_file(".json")
         with redirect_stdout(StringIO()):
-            code = main(["--history", history, "--output-md", md, "--output-json", js, "--output-junit", junit])
+            code = main(
+                [
+                    "--history",
+                    history,
+                    "--output-md",
+                    md,
+                    "--output-json",
+                    js,
+                    "--output-junit",
+                    junit,
+                    "--output-policy",
+                    policy,
+                ]
+            )
         self.assertEqual(code, 0)
         self.assertGreater(os.path.getsize(md), 0)
         self.assertGreater(os.path.getsize(js), 0)
         self.assertGreater(os.path.getsize(junit), 0)
+        with open(policy, encoding="utf-8") as fh:
+            self.assertEqual(json.loads(fh.read())["schema_version"], "eval-threshold-policy.v1")
 
     def test_cli_creates_output_directories(self):
         history = self.temp_file(".jsonl", "\n".join(json.dumps(r) for r in self.history))
@@ -171,6 +215,59 @@ class CalibratorReportCliTests(unittest.TestCase):
         with redirect_stdout(StringIO()):
             code = main(["--history", history, "--current", current, "--fail-on-current", "--current-min-pass-rate", "0"])
         self.assertEqual(code, 0)
+
+    def test_cli_policy_gate_passes_current(self):
+        history = self.temp_file(".jsonl", "\n".join(json.dumps(r) for r in self.history))
+        config = self.temp_file(".json", json.dumps({"metrics": {"score": {}}}))
+        policy = self.temp_file(".json")
+        current = self.temp_file(".jsonl", json.dumps({"id": "ok", "score": 0.9}) + "\n")
+        with redirect_stdout(StringIO()):
+            self.assertEqual(main(["--history", history, "--config", config, "--output-policy", policy]), 0)
+
+        out = StringIO()
+        with redirect_stdout(out):
+            code = main(["--policy", policy, "--current", current, "--stdout", "json", "--fail-on-current"])
+
+        self.assertEqual(code, 0)
+        self.assertTrue(json.loads(out.getvalue())["current"]["gate_passed"])
+
+    def test_cli_policy_gate_fails_current(self):
+        history = self.temp_file(".jsonl", "\n".join(json.dumps(r) for r in self.history))
+        policy = self.temp_file(".json")
+        current = self.temp_file(".jsonl", json.dumps({"id": "bad", "score": 0.1}) + "\n")
+        with redirect_stdout(StringIO()):
+            self.assertEqual(main(["--history", history, "--output-policy", policy]), 0)
+
+        with redirect_stdout(StringIO()):
+            code = main(["--policy", policy, "--current", current, "--fail-on-current"])
+
+        self.assertEqual(code, 1)
+
+    def test_cli_policy_current_min_pass_rate_override(self):
+        history = self.temp_file(".jsonl", "\n".join(json.dumps(r) for r in self.history))
+        policy = self.temp_file(".json")
+        current = self.temp_file(".jsonl", json.dumps({"id": "bad", "score": 0.1}) + "\n")
+        with redirect_stdout(StringIO()):
+            self.assertEqual(main(["--history", history, "--output-policy", policy]), 0)
+        with redirect_stdout(StringIO()):
+            code = main(["--policy", policy, "--current", current, "--fail-on-current", "--current-min-pass-rate", "0"])
+
+        self.assertEqual(code, 0)
+
+    def test_cli_policy_gate_writes_junit(self):
+        history = self.temp_file(".jsonl", "\n".join(json.dumps(r) for r in self.history))
+        policy = self.temp_file(".json")
+        junit = self.temp_file(".xml")
+        current = self.temp_file(".jsonl", json.dumps({"id": "bad&case", "score": 0.1}) + "\n")
+        with redirect_stdout(StringIO()):
+            self.assertEqual(main(["--history", history, "--output-policy", policy]), 0)
+        with redirect_stdout(StringIO()):
+            code = main(["--policy", policy, "--current", current, "--output-junit", junit, "--stdout", "junit"])
+
+        self.assertEqual(code, 0)
+        root = ET.parse(junit).getroot()
+        self.assertEqual(root.attrib["failures"], "1")
+        self.assertEqual(root.find("testcase").attrib["name"], "bad&case")
 
     def test_cli_csv_history(self):
         history = self.temp_file(".csv", "id,label,score\na,true,0.9\nb,false,0.1\n")

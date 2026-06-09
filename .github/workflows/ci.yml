@@ -19,3 +19,22 @@ jobs:
         run: python -m pip install -e .
       - name: Run unit tests
         run: python -m unittest discover -s tests
+      - name: Smoke test policy export and gate reuse
+        run: |
+          mkdir -p build
+          eval-threshold-calibrator \
+            --history examples/history.jsonl \
+            --current examples/current.jsonl \
+            --config examples/config.json \
+            --output-md build/report.md \
+            --output-json build/report.json \
+            --output-junit build/junit.xml \
+            --output-policy build/eval-threshold-policy.json \
+            --fail-on-current
+          eval-threshold-calibrator \
+            --policy build/eval-threshold-policy.json \
+            --current examples/current.jsonl \
+            --output-json build/policy-gate.json \
+            --output-junit build/policy-gate.xml \
+            --fail-on-current \
+            --stdout json

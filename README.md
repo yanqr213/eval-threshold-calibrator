@@ -36,10 +36,39 @@ python -m eval_threshold_calibrator \
   --output-md report.md \
   --output-json report.json \
   --output-junit junit.xml \
+  --output-policy eval-threshold-policy.json \
   --fail-on-current
 ```
 
 默认 stdout 输出 Markdown。`--fail-on-current` 开启后，如果当前候选样本通过率低于 `current_min_pass_rate`，CLI 返回退出码 `1`。配置或输入错误返回 `2`。
+
+## Gate Policy 工作流
+
+很多团队不希望每次 PR 都重新扫描历史样本，或者不想把大型历史 eval 数据复制到每个下游仓库。推荐做法是先在有标签历史数据的地方校准一次，把 policy 文件提交进仓库；后续 CI 只用当前候选结果复验。
+
+第一步：校准并导出可评审的 policy。
+
+```bash
+eval-threshold-calibrator \
+  --history eval/history.jsonl \
+  --config eval/calibrator.json \
+  --output-md eval/report.md \
+  --output-json eval/report.json \
+  --output-policy eval/eval-threshold-policy.json
+```
+
+第二步：在 PR 或 nightly CI 中复用已提交的 policy。
+
+```bash
+eval-threshold-calibrator \
+  --policy eval/eval-threshold-policy.json \
+  --current eval/current.jsonl \
+  --output-json eval/policy-gate.json \
+  --output-junit eval/policy-gate.xml \
+  --fail-on-current
+```
+
+`eval-threshold-policy.v1` 是稳定 JSON schema，包含每个指标的原始阈值、方向、是否必选、校准时 precision/recall/FPR/FNR/F1、稳定区间和全局 `current_min_pass_rate`。这让阈值变化可以像代码一样 code review，也适合 Codex、Claude Code 或其他开发智能体在 CI 中直接读取失败样本。
 
 ## 输入格式
 
@@ -118,6 +147,8 @@ JSON 报告适合机器消费，保留扫描点、混淆矩阵、约束结果和
 
 JUnit XML 适合 GitHub Actions、GitLab CI、Jenkins 等测试报告系统。
 
+Policy JSON 适合提交到仓库，后续用 `--policy --current` 复用阈值。policy gate 模式也能输出 JSON 和 JUnit，方便 CI 保存机器可读报告和测试报告。
+
 ## CI 集成
 
 GitHub Actions 示例：
@@ -142,6 +173,19 @@ jobs:
             --output-md eval-report.md \
             --output-json eval-report.json \
             --output-junit eval-junit.xml \
+            --output-policy eval-threshold-policy.json \
+            --fail-on-current
+```
+
+如果已经把 policy 提交到仓库，CI 可以更轻：
+
+```yaml
+      - run: |
+          eval-threshold-calibrator \
+            --policy eval/eval-threshold-policy.json \
+            --current eval/current.jsonl \
+            --output-json eval-policy-gate.json \
+            --output-junit eval-policy-gate.xml \
             --fail-on-current
 ```
 
@@ -183,6 +227,7 @@ python -m eval_threshold_calibrator --history examples/history.jsonl --config ex
 - `eval_threshold_calibrator/io.py`：JSONL/CSV 读取、配置校验、字段发现。
 - `eval_threshold_calibrator/metrics.py`：归一化、阈值扫描、指标计算、稳定区间。
 - `eval_threshold_calibrator/calibrator.py`：校准编排和当前候选 gate。
+- `eval_threshold_calibrator/policy.py`：已提交 policy 的 schema 校验和当前候选复验。
 - `eval_threshold_calibrator/reports.py`：Markdown/JSON/JUnit 输出。
 - `eval_threshold_calibrator/cli.py`：命令行入口和退出码。
 
@@ -217,8 +262,29 @@ eval-threshold-calibrator \
   --output-md report.md \
   --output-json report.json \
   --output-junit junit.xml \
+  --output-policy eval-threshold-policy.json \
   --fail-on-current
 ```
+
+### Gate Policy Workflow
+
+Use a two-step workflow when you want reviewable thresholds and lightweight future CI checks:
+
+```bash
+eval-threshold-calibrator \
+  --history eval/history.jsonl \
+  --config eval/calibrator.json \
+  --output-policy eval/eval-threshold-policy.json
+
+eval-threshold-calibrator \
+  --policy eval/eval-threshold-policy.json \
+  --current eval/current.jsonl \
+  --output-json eval/policy-gate.json \
+  --output-junit eval/policy-gate.xml \
+  --fail-on-current
+```
+
+The `eval-threshold-policy.v1` file stores calibrated thresholds, metric directions, required flags, calibration quality metrics, stability intervals, and the required current pass rate. Commit it when you want threshold changes to be code-reviewed and reused by developer agents or CI jobs without replaying historical data.
 
 Exit codes:
 
@@ -247,7 +313,7 @@ report = calibrate(
 
 ### CI
 
-Use the JUnit output for CI test reports and `--fail-on-current` for gating. Keep historical labeled data under version control when possible so threshold changes are reviewable.
+Use the JUnit output for CI test reports and `--fail-on-current` for gating. Keep historical labeled data or the generated policy under version control when possible so threshold changes are reviewable.
 
 ### Limitations
 
